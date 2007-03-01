@@ -1,0 +1,79 @@
+xdg-user-dirs-gtk (0.10-0ubuntu1endless2) unstable; urgency=low
+
+  * debian/rules, debian/control.in:
+    Depend on autoreconf.mk
+  * debian/patches/upstream-0001-Make-the-Don-t-ask-again-checkbox-work-properly.patch:
+    Integrate patch from upstream to make the don't ask
+    again checkbox working properly.
+  * debian/patches/endless-support-desktop-directories.patch:
+    Add support for desktop-specified directories.
+
+ -- Cosimo Cecchi <cosimo@endlessm.com>  Tue, 25 Feb 2014 21:56:35 -0800
+
+xdg-user-dirs-gtk (0.10-0ubuntu1co1) UNRELEASED; urgency=low
+
+  * Add patch to spawn eos-link-user-dirs
+
+ -- Cosimo Cecchi <cosimoc@endless.com>  Wed, 16 Oct 2013 13:58:20 -0700
+
+xdg-user-dirs-gtk (0.10-0ubuntu1) raring; urgency=low
+
+  * New upstream version:
+    - Use new location for GTK+ bookmarks file
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Wed, 23 Jan 2013 11:20:12 +0100
+
+xdg-user-dirs-gtk (0.9-1ubuntu1) quantal; urgency=low
+
+  * Resync on Debian, remaining diff
+  * debian/patches/nodisplay_autostart.patch:
+    - Don't show in "Startup Applications"
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Thu, 19 Jul 2012 17:02:10 +0200
+
+xdg-user-dirs-gtk (0.9-1) unstable; urgency=low
+
+  * New upstream release.
+  * Use track tar.xz upstream tarballs.
+  * Switch to 3.0 (quilt) source format and update debhelper compat level.
+  * Build-depend on GTK+3 now instead of GTK+2.
+
+ -- Sebastian Dröge <slomo@debian.org>  Wed, 04 Apr 2012 13:58:18 +0200
+
+xdg-user-dirs-gtk (0.8-1) unstable; urgency=low
+
+  * New upstream bugfix release.
+  * debian/control.in:
+    + Line-wrap control fields.
+    + Build depend on intltool.
+    + Update Standards-Version to 3.8.0, no additional changes needed.
+
+ -- Sebastian Dröge <slomo@debian.org>  Sat, 07 Mar 2009 20:53:29 +0100
+
+xdg-user-dirs-gtk (0.7-1) unstable; urgency=low
+
+  * New upstream bugfix release with many translation updates:
+    + debian/patches/01_no_desktop_bookmark.patch,
+      debian/patches/90_from_svn_handle_en_us_variants.patch:
+      - Dropped, merged upstream.
+  * debian/control.in:
+    + Update Standards-Version to 3.7.3, no additional changes needed.
+    + Move homepage to the Homepage field and fix the URL.
+  * debian/rules:
+    + Add -Wl,-z,defs to LDFLAGS and actually append.
+
+ -- Sebastian Dröge <slomo@debian.org>  Tue, 12 Feb 2008 15:02:40 +0100
+
+xdg-user-dirs-gtk (0.6-1) unstable; urgency=low
+
+  * Initial version (Closes: #413955).
+  * debian/patches/01_no_desktop_bookmark.patch:
+    + Don't bookmark the desktop directory since it's already handled
+      as a special case by the GNOME desktop applications (LP: #122602)
+      Patch taken from Ubuntu.
+  * debian/patches/90_from_svn_handle_en_us_variants.patch:
+    + patch from SVN, handle en_US variants correctly. Patch taken from
+      Ubuntu.
+
+ -- Sebastian Dröge <slomo@debian.org>  Thu,  8 Mar 2007 07:16:00 +0100
+
