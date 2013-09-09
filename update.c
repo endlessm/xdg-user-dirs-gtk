@@ -461,5 +461,9 @@ main (int argc, char *argv[])
   g_free (new_entries);
   g_free (old_entries);
   
+  /* Run the script to link user directories to eos-media */
+  /* If script is not installed, simply ignore the error */
+  g_spawn_command_line_sync ("eos-link-user-dirs", NULL, NULL, NULL, NULL);
+
   return 0;
 }
