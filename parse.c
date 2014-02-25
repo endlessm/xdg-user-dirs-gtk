@@ -66,75 +66,75 @@ parse_xdg_dirs (const char *config_file)
       config_file = (const char *)config_file_free;
     }
 
-  if (g_file_get_contents (config_file, &data, NULL, NULL))
+  if (!g_file_get_contents (config_file, &data, NULL, NULL))
+    goto out;
+
+  lines = g_strsplit (data, "\n", 0);
+  g_free (data);
+  for (i = 0; lines[i] != NULL; i++)
     {
-      lines = g_strsplit (data, "\n", 0);
-      g_free (data);
-      for (i = 0; lines[i] != NULL; i++)
-	{
-	  p = lines[i];
-	  while (g_ascii_isspace (*p))
-	    p++;
+      p = lines[i];
+      while (g_ascii_isspace (*p))
+        p++;
       
-	  if (*p == '#')
-	    continue;
+      if (*p == '#')
+        continue;
       
-	  value = strchr (p, '=');
-	  if (value == NULL)
-	    continue;
-	  *value++ = 0;
+      value = strchr (p, '=');
+      if (value == NULL)
+        continue;
+      *value++ = 0;
       
-	  g_strchug (g_strchomp (p));
-	  if (!g_str_has_prefix (p, "XDG_"))
-	    continue;
-	  if (!g_str_has_suffix (p, "_DIR"))
-	    continue;
-	  type_start = p + 4;
-	  type_end = p + strlen (p) - 4;
+      g_strchug (g_strchomp (p));
+      if (!g_str_has_prefix (p, "XDG_"))
+        continue;
+      if (!g_str_has_suffix (p, "_DIR"))
+        continue;
+      type_start = p + 4;
+      type_end = p + strlen (p) - 4;
       
-	  while (g_ascii_isspace (*value))
-	    value++;
+      while (g_ascii_isspace (*value))
+        value++;
       
-	  if (*value != '"')
-	    continue;
-	  value++;
+      if (*value != '"')
+        continue;
+      value++;
       
-	  relative = FALSE;
-	  if (g_str_has_prefix (value, "$HOME/"))
-	    {
-	      relative = TRUE;
-	      value += 6;
-	    }
-	  else if (*value != '/')
-	    continue;
+      relative = FALSE;
+      if (g_str_has_prefix (value, "$HOME/"))
+        {
+          relative = TRUE;
+          value += 6;
+        }
+      else if (*value != '/')
+        continue;
 	  
-	  d = unescaped = g_malloc (strlen (value) + 1);
-	  while (*value && *value != '"')
-	    {
-	      if ((*value == '\\') && (*(value + 1) != 0))
-		value++;
-	      *d++ = *value++;
-	    }
-	  *d = 0;
+      d = unescaped = g_malloc (strlen (value) + 1);
+      while (*value && *value != '"')
+        {
+          if ((*value == '\\') && (*(value + 1) != 0))
+            value++;
+          *d++ = *value++;
+        }
+      *d = 0;
       
-	  *type_end = 0;
-	  dir.type = g_strdup (type_start);
-	  if (relative)
-	    {
-	      dir.path = g_build_filename (g_get_home_dir (), unescaped, NULL);
-	      g_free (unescaped);
-	    }
-	  else 
-	    dir.path = unescaped;
+      *type_end = 0;
+      dir.type = g_strdup (type_start);
+      if (relative)
+        {
+          dir.path = g_build_filename (g_get_home_dir (), unescaped, NULL);
+          g_free (unescaped);
+        }
+      else 
+        dir.path = unescaped;
       
-	  g_array_append_val (array, dir);
-	}
-      
-      g_strfreev (lines);
+      g_array_append_val (array, dir);
     }
-  
-  g_free (config_file_free);
-  
+      
+  g_strfreev (lines);
+
+ out:
+  g_free (config_file_free);  
   return (XdgDirEntry *)g_array_free (array, FALSE);
 }
 
