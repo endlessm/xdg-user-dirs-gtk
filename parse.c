@@ -43,6 +43,28 @@ parse_xdg_dirs_locale (void)
   return locale;
 }
 
+static char *
+user_dirs_key_from_string (char *string,
+                           int len)
+{
+  if (len < 0)
+    len = strlen (string);
+
+  string[len] = '\0';
+
+  if (g_str_has_suffix (string, ".desktop"))
+    return string;
+
+  if (g_str_has_prefix (string, "XDG_") &&
+      g_str_has_suffix (string, "_DIR"))
+    {
+      string[len - 4] = '\0';
+      return string + 4;
+    }
+
+  return NULL;
+}
+
 XdgDirEntry *
 parse_xdg_dirs (const char *config_file)
 {
@@ -79,20 +101,20 @@ parse_xdg_dirs (const char *config_file)
       
       if (*p == '#')
         continue;
-      
-      value = strchr (p, '=');
-      if (value == NULL)
+
+      type_start = p;
+      while (*p && !g_ascii_isspace (*p) && * p != '=')
+	p++;
+
+      if (*p == 0)
         continue;
-      *value++ = 0;
-      
-      g_strchug (g_strchomp (p));
-      if (!g_str_has_prefix (p, "XDG_"))
+
+      type_end = p++;
+      type_start = user_dirs_key_from_string (type_start, type_end - type_start);
+      if (type_start == NULL)
         continue;
-      if (!g_str_has_suffix (p, "_DIR"))
-        continue;
-      type_start = p + 4;
-      type_end = p + strlen (p) - 4;
-      
+
+      value = p;
       while (g_ascii_isspace (*value))
         value++;
       
