@@ -82,42 +82,128 @@ save_locale (void)
 }
 
 static gboolean
-update_command_can_move (void)
+update_command_should_move (GSettings *settings)
 {
   char *help_stdout = NULL;
-  gboolean can_move = FALSE;
+  gboolean should_move = FALSE;
+
+  if (!g_settings_get_boolean (settings, "move-directories"))
+    return FALSE;
 
   g_spawn_command_line_sync (XDG_USER_DIRS_UPDATE " --help",
                              &help_stdout,
                              NULL, NULL, NULL);
 
   if (strstr (help_stdout, "--move") != NULL)
-    can_move = TRUE;
+    should_move = TRUE;
   g_free (help_stdout);
 
-  return can_move;
+  return should_move;
+}
+
+static gboolean
+do_run_dialog (GtkListStore *list_store,
+               gboolean should_move,
+               gboolean *save_locale_out)
+{
+  GtkWidget *dialog, *vbox;
+  GtkWidget *treeview, *check;
+  GtkCellRenderer *cell;
+  GtkWidget *scrolledwindow;
+  GtkWidget *label;
+  int response;
+
+  dialog = gtk_message_dialog_new (NULL, 0,
+				   GTK_MESSAGE_WARNING,
+				   GTK_BUTTONS_NONE,
+				   _("Update standard folders to current language?"));
+  gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG (dialog),
+					    _("You have logged in in a new language. You can automatically update the names of some standard folders in your home folder to match this language. The update would change the following folders:"));
+
+  gtk_dialog_add_buttons (GTK_DIALOG (dialog),
+			  _("_Keep Old Names"), GTK_RESPONSE_NO,
+			  _("_Update Names"), GTK_RESPONSE_YES,
+			  NULL);
+
+  gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_NO);
+
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      vbox, TRUE, TRUE, 0);
+  gtk_widget_show (vbox);
+
+  scrolledwindow = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolledwindow),
+				  GTK_POLICY_NEVER,
+				  GTK_POLICY_NEVER);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolledwindow),
+				       GTK_SHADOW_IN);  
+  
+  gtk_box_pack_start (GTK_BOX (vbox), scrolledwindow, TRUE, TRUE, 0);
+  
+  treeview = gtk_tree_view_new_with_model (GTK_TREE_MODEL (list_store));
+
+  gtk_tree_selection_set_mode (gtk_tree_view_get_selection (GTK_TREE_VIEW (treeview)),
+                               GTK_SELECTION_NONE); 
+
+  cell = gtk_cell_renderer_text_new ();
+  gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
+					       -1, _("Current folder name"),
+					       cell,
+					       "text", 0,
+					       NULL);
+  gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
+					       -1, _("New folder name"),
+					       cell,
+					       "text", 1,
+					       NULL);
+
+  gtk_container_add (GTK_CONTAINER (scrolledwindow),
+		     treeview);
+
+  gtk_widget_show_all (scrolledwindow);
+
+  if (!should_move)
+    {
+      label = gtk_label_new (_("Note that existing content will not be moved."));
+      gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
+      gtk_label_set_selectable (GTK_LABEL (label), TRUE);
+      gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.0);
+      gtk_widget_show (label);
+      gtk_box_pack_start (GTK_BOX (vbox), label, FALSE, FALSE, 0);
+    }
+
+  check = gtk_check_button_new_with_mnemonic (_("_Don't ask me this again"));
+  gtk_box_pack_start (GTK_BOX (vbox), check, FALSE, FALSE, 0);
+  gtk_widget_show (check);
+  
+  response =  gtk_dialog_run (GTK_DIALOG (dialog));
+
+  if (save_locale_out)
+    *save_locale_out = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (check));
+
+  gtk_widget_destroy (dialog);
+  return (response == GTK_RESPONSE_YES);
 }
 
 static void
 update_locale (XdgDirEntry *old_entries)
 {
   XdgDirEntry *new_entries, *entry;
-  GtkWidget *dialog, *vbox;
   int exit_status;
   int fd;
   char *filename;
   char *cmdline;
-  int response;
   int i, j;
   GtkListStore *list_store;
   GtkTreeIter iter;
-  GtkWidget *treeview, *check;
-  GtkCellRenderer *cell;
-  GtkWidget *scrolledwindow;
-  GtkWidget *label;
   char *std_out, *std_err;
   gboolean has_changes;
-  gboolean can_move;
+  gboolean should_move;
+  gboolean should_save_locale;
+  gboolean should_show_dialog;
+  gboolean should_update;
+  GSettings *settings;
 
   fd = g_file_open_tmp ("dirs-XXXXXX", &filename, NULL);
   if (fd == -1)
@@ -139,6 +225,9 @@ update_locale (XdgDirEntry *old_entries)
   g_free (cmdline);
   if (!WIFEXITED(exit_status) || WEXITSTATUS(exit_status) != 0)
     return;
+
+  settings = g_settings_new ("org.gnome.xdg-user-dirs");
+  should_move = update_command_should_move (settings);
 
   new_entries = parse_xdg_dirs (filename);
   g_unlink (filename);
@@ -194,82 +283,27 @@ update_locale (XdgDirEntry *old_entries)
 
   if (!has_changes)
     {
+      g_object_unref (settings);
       g_object_unref (list_store);
       return;
     }
-  
-  dialog = gtk_message_dialog_new (NULL, 0,
-				   GTK_MESSAGE_WARNING,
-				   GTK_BUTTONS_NONE,
-				   _("Update standard folders to current language?"));
-  gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG (dialog),
-					    _("You have logged in in a new language. You can automatically update the names of some standard folders in your home folder to match this language. The update would change the following folders:"));
 
-  gtk_dialog_add_buttons (GTK_DIALOG (dialog),
-			  _("_Keep Old Names"), GTK_RESPONSE_NO,
-			  _("_Update Names"), GTK_RESPONSE_YES,
-			  NULL);
-
-  gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_NO);
-
-  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
-  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                      vbox, TRUE, TRUE, 0);
-  gtk_widget_show (vbox);
-
-  scrolledwindow = gtk_scrolled_window_new (NULL, NULL);
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolledwindow),
-				  GTK_POLICY_NEVER,
-				  GTK_POLICY_NEVER);
-  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolledwindow),
-				       GTK_SHADOW_IN);  
-  
-  gtk_box_pack_start (GTK_BOX (vbox), scrolledwindow, TRUE, TRUE, 0);
-  
-  treeview = gtk_tree_view_new_with_model (GTK_TREE_MODEL (list_store));
-
-  gtk_tree_selection_set_mode (gtk_tree_view_get_selection (GTK_TREE_VIEW (treeview)),
-                               GTK_SELECTION_NONE); 
-
-  cell = gtk_cell_renderer_text_new ();
-  gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
-					       -1, _("Current folder name"),
-					       cell,
-					       "text", 0,
-					       NULL);
-  gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
-					       -1, _("New folder name"),
-					       cell,
-					       "text", 1,
-					       NULL);
-
-  gtk_container_add (GTK_CONTAINER (scrolledwindow),
-		     treeview);
-
-  gtk_widget_show_all (scrolledwindow);
-
-  can_move = update_command_can_move ();
-  if (!can_move)
+  should_show_dialog = g_settings_get_boolean (settings, "show-confirmation-dialog");
+  if (should_show_dialog)
     {
-      label = gtk_label_new (_("Note that existing content will not be moved."));
-      gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
-      gtk_label_set_selectable (GTK_LABEL (label), TRUE);
-      gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.0);
-      gtk_widget_show (label);
-      gtk_box_pack_start (GTK_BOX (vbox), label, FALSE, FALSE, 0);
+      should_update = do_run_dialog (list_store, should_move, &should_save_locale);
+    }
+  else
+    {
+      should_save_locale = TRUE;
+      should_update = TRUE;  
     }
 
-  check = gtk_check_button_new_with_mnemonic (_("_Don't ask me this again"));
-  gtk_box_pack_start (GTK_BOX (vbox), check, FALSE, FALSE, 0);
-  gtk_widget_show (check);
-  
-  response =  gtk_dialog_run (GTK_DIALOG (dialog));
-
-  if (response == GTK_RESPONSE_YES)
+  if (should_update)
     {
       const gchar *cmdline;
 
-      if (can_move)
+      if (should_move)
         cmdline = XDG_USER_DIRS_UPDATE " --move --force";
       else
         cmdline = XDG_USER_DIRS_UPDATE " --force";
@@ -308,15 +342,13 @@ update_locale (XdgDirEntry *old_entries)
 	}
     }
 
-  if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (check)))
-    {
-      save_locale ();
-    }
+  if (should_save_locale)
+    save_locale ();
 
   g_free (new_entries);
 
-  gtk_widget_destroy (dialog);
   g_object_unref (list_store);
+  g_object_unref (settings);
 }
 
 int

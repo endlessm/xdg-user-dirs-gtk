@@ -1,0 +1,14 @@
+<schemalist>
+  <schema id="org.gnome.xdg-user-dirs" path="/org/gnome/xdg-user-dirs/" gettext-domain="xdg-user-dirs-gtk">
+    <key name="move-directories" type="b">
+      <default>false</default>
+      <_summary>Whether to move old directories after locale changes</_summary>
+      <_description>If set to true, then old directories will be moved when locale changes. If set to false, new directories will be created but the content will not be moved.</_description>
+    </key>
+    <key name="show-confirmation-dialog" type="b">
+      <default>true</default>
+      <_summary>Whether to show a confirmation dialog before applying locale changes</_summary>
+      <_description>If set to true, then a confirmation dialog will be displayed upon login to confirm renames after a locale change. If set to false, changes will automatically be applied.</_description>
+    </key>
+  </schema>
+</schemalist>
