@@ -81,6 +81,23 @@ save_locale (void)
   fclose (file);
 }
 
+static gboolean
+update_command_can_move (void)
+{
+  char *help_stdout = NULL;
+  gboolean can_move = FALSE;
+
+  g_spawn_command_line_sync (XDG_USER_DIRS_UPDATE " --help",
+                             &help_stdout,
+                             NULL, NULL, NULL);
+
+  if (strstr (help_stdout, "--move") != NULL)
+    can_move = TRUE;
+  g_free (help_stdout);
+
+  return can_move;
+}
+
 static void
 update_locale (XdgDirEntry *old_entries)
 {
@@ -100,6 +117,7 @@ update_locale (XdgDirEntry *old_entries)
   GtkWidget *label;
   char *std_out, *std_err;
   gboolean has_changes;
+  gboolean can_move;
 
   fd = g_file_open_tmp ("dirs-XXXXXX", &filename, NULL);
   if (fd == -1)
@@ -230,13 +248,17 @@ update_locale (XdgDirEntry *old_entries)
 
   gtk_widget_show_all (scrolledwindow);
 
-  label = gtk_label_new (_("Note that existing content will not be moved."));
-  gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
-  gtk_label_set_selectable (GTK_LABEL (label), TRUE);
-  gtk_widget_set_halign (GTK_WIDGET (label), 0.0);
-  gtk_widget_set_valign (GTK_WIDGET (label), 0.0);
-  gtk_widget_show (label);
-  gtk_box_pack_start (GTK_BOX (vbox), label, FALSE, FALSE, 0);
+  can_move = update_command_can_move ();
+  if (!can_move)
+    {
+      label = gtk_label_new (_("Note that existing content will not be moved."));
+      gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
+      gtk_label_set_selectable (GTK_LABEL (label), TRUE);
+      gtk_widget_set_halign (GTK_WIDGET (label), 0.0);
+      gtk_widget_set_valign (GTK_WIDGET (label), 0.0);
+      gtk_widget_show (label);
+      gtk_box_pack_start (GTK_BOX (vbox), label, FALSE, FALSE, 0);
+    }
 
   check = gtk_check_button_new_with_mnemonic (_("_Don't ask me this again"));
   gtk_box_pack_start (GTK_BOX (vbox), check, FALSE, FALSE, 0);
@@ -246,7 +268,14 @@ update_locale (XdgDirEntry *old_entries)
 
   if (response == GTK_RESPONSE_YES)
     {
-      if (!g_spawn_command_line_sync (XDG_USER_DIRS_UPDATE " --force", NULL, NULL, &exit_status, NULL) ||
+      const gchar *cmdline;
+
+      if (can_move)
+        cmdline = XDG_USER_DIRS_UPDATE " --move --force";
+      else
+        cmdline = XDG_USER_DIRS_UPDATE " --force";
+
+      if (!g_spawn_command_line_sync (cmdline, NULL, NULL, &exit_status, NULL) ||
           !WIFEXITED(exit_status) ||
           WEXITSTATUS(exit_status) != 0)
         {
