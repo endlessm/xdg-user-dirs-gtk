@@ -2,3 +2,4 @@
 # Please keep this file sorted alphabetically.
 update.c
 user-dirs-update-gtk.desktop.in
+org.gnome.xdg-user-dirs.gschema.xml.in
