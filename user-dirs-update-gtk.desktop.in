@@ -8,3 +8,4 @@ OnlyShowIn=GNOME;LXDE;Unity;
 Type=Application
 StartupNotify=false
 X-KDE-autostart-after=panel
+NoDisplay=true
