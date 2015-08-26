@@ -11,6 +11,9 @@
 #include <glib/gstdio.h>
 #include "parse.h"
 
+#define WP_PATH_ID "org.gnome.desktop.background"
+#define WP_URI_KEY "picture-uri"
+
 static XdgDirEntry *
 find_dir_entry (XdgDirEntry *entries, const char *type)
 {
@@ -188,6 +191,75 @@ do_run_dialog (GtkListStore *list_store,
 }
 
 static void
+update_background_image_path (XdgDirEntry *old_entries,
+                              XdgDirEntry *new_entries)
+{
+  GSettings *settings;
+
+  XdgDirEntry *old_entry = NULL;
+  XdgDirEntry *new_entry = NULL;
+
+  char *old_uri = NULL;
+  char *new_uri, *new_path, *old_path;
+  char **split_path = NULL;
+
+  settings = g_settings_new (WP_PATH_ID);
+
+  old_uri = g_settings_get_string (settings, WP_URI_KEY);
+  if (old_uri == NULL)
+      goto out;
+
+  old_path = g_filename_from_uri (old_uri, NULL, NULL);
+  g_free (old_uri);
+
+  if (old_path == NULL)
+      goto out;
+
+  /* See if the current background path is in the old entries */
+  int index;
+  for (index = 0; old_entries[index].path != NULL; index++)
+    {
+      if (g_str_has_prefix (old_path, old_entries[index].path))
+        {
+          old_entry = &old_entries[index];
+          break;
+        }
+    }
+
+  if (old_entry == NULL)
+    {
+      g_free (old_path);
+      goto out;
+    }
+
+  /* Get the new path */
+  new_entry = find_dir_entry (new_entries, old_entry->type);
+  g_assert (new_entry != NULL);
+
+  /* Get the old path's suffix for the background file */
+  split_path = g_strsplit (old_path, old_entry->path, 2);
+  g_free (old_path);
+
+  /* Attach the suffix to the new path */
+  new_path = g_build_filename (new_entry->path, split_path[1], NULL);
+  g_strfreev (split_path);
+
+  /* Convert to URI */
+  new_uri = g_filename_to_uri (new_path, NULL, NULL);
+  g_free (new_path);
+
+  /* Persist changes */
+  g_settings_set_string (settings, WP_URI_KEY, new_uri);
+
+  g_free (new_uri);
+
+out:
+  g_object_unref (settings);
+
+  return;
+}
+
+static void
 update_locale (XdgDirEntry *old_entries)
 {
   XdgDirEntry *new_entries, *entry;
@@ -319,7 +391,7 @@ update_locale (XdgDirEntry *old_entries)
                                           GTK_MESSAGE_ERROR,
                                           GTK_BUTTONS_OK,
                                           _("There was an error updating the folders"));
-          
+
           gtk_dialog_run (GTK_DIALOG (error));
           gtk_widget_destroy (error);
         }
@@ -341,6 +413,9 @@ update_locale (XdgDirEntry *old_entries)
               g_rmdir (old_entries[i].path);
             }
         }
+
+        /* Also fix background image path */
+        update_background_image_path (old_entries, new_entries);
     }
 
   if (should_save_locale)
