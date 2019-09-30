@@ -8,6 +8,7 @@ Priority: optional
 Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
 Uploaders: Jeremy Bicha <jbicha@debian.org>, Michael Biebl <biebl@debian.org>, Sebastian Dröge <slomo@debian.org>
 Build-Depends: debhelper-compat (= 12),
+               gnome-common,
                gnome-pkg-tools,
                intltool,
                libgtk-3-dev,
